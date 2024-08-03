@@ -1,0 +1,83 @@
+#!/bin/sh
+
+# Define variables
+DOWNLOAD_URL="https://example.com/kryptex-installer.exe"  # Replace with the actual URL
+INSTALLER_PATH="/tmp/kryptex-installer.exe"
+USERNAME="your_username"
+PASSWORD="your_password"
+API_KEY="your_api_key"  # If applicable
+DISCORD_WEBHOOK_URL="https://discord.com/api/webhooks/your_webhook_id/your_webhook_token"
+
+# Function to send message to Discord webhook
+send_to_discord() {
+    MESSAGE="$1"
+    curl -H "Content-Type: application/json" -X POST -d "{\"content\": \"$MESSAGE\"}" $DISCORD_WEBHOOK_URL
+}
+
+# Function to get IP address
+get_ip_address() {
+    IP_ADDRESS=$(curl -s http://ipinfo.io/ip)
+    echo "$IP_ADDRESS"
+}
+
+# Function to get CPU usage
+get_cpu_usage() {
+    CPU_USAGE=$(top -bn1 | grep "Cpu(s)" | sed "s/.*, *\([0-9.]*\)%* id.*/\1/" | awk '{print 100 - $1}')
+    echo "$CPU_USAGE"
+}
+
+# Function to get CPU temperature (Linux example)
+get_cpu_temperature() {
+    CPU_TEMP=$(sensors | grep 'Core 0' | awk '{print $3}')
+    echo "$CPU_TEMP"
+}
+
+# Download the Kryptex installer
+send_to_discord "Starting download of Kryptex installer."
+curl -o "$INSTALLER_PATH" "$DOWNLOAD_URL"
+send_to_discord "Download completed."
+
+# Install Kryptex
+# Note: This part of the script assumes you can run the installer silently. Adjust the options accordingly.
+# On Windows, you might use something like:
+# wine "$INSTALLER_PATH" /S
+# On Linux with Wine:
+send_to_discord "Starting Kryptex installation."
+wine "$INSTALLER_PATH"
+
+# Wait for the installation to complete
+sleep 30  # Adjust as necessary
+send_to_discord "Kryptex installation completed."
+
+# Log in to your account (this will vary based on Kryptex's API or CLI options)
+send_to_discord "Logging in to Kryptex account."
+# Assuming there is a CLI for login
+kryptex-cli login --username "$USERNAME" --password "$PASSWORD"
+send_to_discord "Login successful."
+
+# Configure mining settings
+send_to_discord "Configuring mining settings."
+kryptex-cli set-mining-mode --cpu-first --fallback-to-gpu
+send_to_discord "Mining settings configured."
+
+# Start mining
+send_to_discord "Starting mining."
+kryptex-cli start-mining
+send_to_discord "Mining started."
+
+# Get and send IP address
+IP_ADDRESS=$(get_ip_address)
+send_to_discord "Mining started from IP address: $IP_ADDRESS"
+
+# Function to send mining updates
+send_mining_update() {
+    CPU_USAGE=$(get_cpu_usage)
+    CPU_TEMP=$(get_cpu_temperature)
+    send_to_discord "Mining update: CPU Usage: $CPU_USAGE%, CPU Temperature: $CPU_TEMP"
+}
+
+# Periodically send mining updates
+while true; do
+    send_mining_update
+    sleep 600  # Adjust the interval as necessary (e.g., 600 seconds = 10 minutes)
+done
